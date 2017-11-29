@@ -500,5 +500,4 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		}
 	}
 
-	static final AttributeKey<Integer> PRODUCE_GZIP = AttributeKey.newInstance("produceGzip");
 }
