@@ -33,6 +33,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.ByteBufFlux;
+import reactor.ipc.netty.DisposableServer;
 import reactor.ipc.netty.FutureMono;
 import reactor.ipc.netty.Connection;
 import reactor.ipc.netty.SocketUtils;
@@ -56,7 +57,7 @@ public class ChannelOperationsHandlerTest {
 	}
 
 	private void doTestPublisherSenderOnCompleteFlushInProgress(boolean useScheduler) {
-		Connection server =
+		DisposableServer server =
 				HttpServer.create()
 				          .port(0)
 				          .handler((req, res) ->
