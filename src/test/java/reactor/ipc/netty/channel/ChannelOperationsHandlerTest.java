@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.http.HttpMethod;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,10 +36,8 @@ import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.ByteBufFlux;
 import reactor.ipc.netty.DisposableServer;
 import reactor.ipc.netty.FutureMono;
-import reactor.ipc.netty.Connection;
 import reactor.ipc.netty.SocketUtils;
 import reactor.ipc.netty.http.client.HttpClient;
-import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.test.StepVerifier;
 
@@ -72,7 +71,7 @@ public class ChannelOperationsHandlerTest {
 		if (useScheduler) {
 			flux.publishOn(Schedulers.single());
 		}
-		Mono<HttpClientResponse> response =
+		Mono<Integer> code =
 				HttpClient.prepare()
 				          .tcpConfiguration(tcpClient -> tcpClient.noSSL())
 				          .port(server.address().getPort())
@@ -80,19 +79,17 @@ public class ChannelOperationsHandlerTest {
 				          .post()
 				          .uri("/")
 				          .send(ByteBufFlux.fromString(flux))
-				          .response().log();
+				          .responseSingle((res, buf) -> Mono.just(res.status().code()))
+				          .log();
 
-		StepVerifier.create(response)
-		            .expectNextMatches(res -> {
-		                res.dispose();
-		                return res.status().code() == 200;
-		            })
+		StepVerifier.create(code)
+		            .expectNextMatches(c -> c == 200)
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(300));
 
 		server.dispose();
 	}
-/*
+
 	@Test
 	public void keepPrefetchSizeConstantEqualsWriteBufferLowHighWaterMark() {
 		doTestPrefetchSize(1024, 1024);
@@ -132,14 +129,17 @@ public class ChannelOperationsHandlerTest {
 			throw new IOException("Fail to start test server");
 		}
 
-		Mono<HttpClientResponse> response =
+		ByteBufFlux response =
 				HttpClient.prepare()
 				          .port(abortServerPort)
-				          .tcpConfiguration(tcpClient -> tcpClient.host("localhost"))
-				          .get()
+				          .tcpConfiguration(tcpClient -> tcpClient.host("localhost")
+				                                                  .noSSL())
+				          .wiretap()
+				          .request(HttpMethod.GET)
 				          .uri("/")
-						          req -> req.sendHeaders()
-						                    .sendString(Flux.just("a", "b", "c")));
+				          .send((req, out) -> req.sendHeaders()
+				                                 .sendString(Flux.just("a", "b", "c")))
+				          .responseContent();
 
 		StepVerifier.create(response)
 		            .expectError()
@@ -205,5 +205,5 @@ public class ChannelOperationsHandlerTest {
 				server.close();
 			}
 		}
-	}*/
+	}
 }
